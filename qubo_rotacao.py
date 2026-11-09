@@ -122,7 +122,7 @@ class Pesos:
     Balanço de nitrogênio
     ---------------------
     ``penal_balanco_n`` pondera o desvio quadrático do saldo de N acumulado no
-    horizonte. Ver o termo 5 no docstring do módulo.
+    horizonte. Ver o termo 2 no docstring do módulo.
 
     Penalidades
     -----------
@@ -251,7 +251,7 @@ class ModeloQUBO:
             else:
                 Q[b, a] += valor
 
-        # --- Termos 1, 2 e 6: custos de nutriente e adequação de estação ---
+        # --- Termos 1 e 5: custos de nutriente e adequação de estação ---
         for t in range(self.n_periodos):
             for j in range(self.n_talhoes):
                 for i, cultura in enumerate(self.culturas):
@@ -269,11 +269,13 @@ class ModeloQUBO:
                         self.faixa_mo, antecessora
                     )
 
-                    # (2) P e K — adubação de manutenção, independe da sequência
+                    # (1b) P e K — adubação de manutenção, independe da
+                    # sequência; faz parte do custo de nutriente, não do
+                    # balanço de N, que é o termo 2.
                     Q[a, a] += p.custo_p2o5 * cultura.manutencao_p2o5
                     Q[a, a] += p.custo_k2o * cultura.manutencao_k2o
 
-                    # (6) Estação incompatível
+                    # (5) Estação incompatível
                     if cultura.estacao != self.estacoes[t]:
                         Q[a, a] += p.penal_estacao
 

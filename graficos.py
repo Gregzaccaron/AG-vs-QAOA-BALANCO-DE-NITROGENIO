@@ -49,6 +49,40 @@ TINTA = "#0b0b0b"
 TINTA_FRACA = "#52514e"
 GRADE = "#e3e3e0"
 
+# --- escala dos paineis lado a lado ---------------------------------------
+#
+# As figuras ``desvio_por_tamanho`` e ``tempo_por_tamanho`` entram no artigo
+# lado a lado, cada uma num ``minipage`` de 0,49 da mancha. Desenha-las com
+# 6,3 polegadas e deixar o LaTeX reduzir a 49% encolhia junto TODA a
+# tipografia: uma fonte de 9 pt saia com 4,4 pt no papel, e o parecer do
+# orientador (09/11/2026) apontou a figura como ilegivel.
+#
+# A correcao e desenhar ja no tamanho final, de modo que 1 pt aqui seja 1 pt
+# impresso. A area ocupada na pagina nao muda em nada -- largura e altura sao
+# multiplicadas pelo mesmo 0,49 que o LaTeX aplicaria --, so a letra cresce.
+
+#: Mancha do template UNESC: 21 cm de papel menos 3 cm e 2 cm = 16 cm.
+LARGURA_MANCHA_POL = 6.3
+#: Fracao da mancha que cada painel ocupa (o ``minipage`` de 0.49).
+ESCALA_PAINEL = 0.49
+LARGURA_PAINEL_POL = LARGURA_MANCHA_POL * ESCALA_PAINEL  # 3,09 pol
+
+#: Altura NOMINAL de cada painel, em polegadas. Nao e a altura impressa: o
+#: ``bbox_inches="tight"`` do ``salvar`` acrescenta o que fica fora dos eixos
+#: (legenda, rotulos, titulo). Estes dois valores foram CALIBRADOS para que a
+#: altura final do arquivo seja a mesma que as figuras tinham antes de passarem
+#: a ser desenhadas em tamanho real: 2,254 pol o painel (a) e 1,666 pol o (b).
+#: Mexer na legenda ou nos rotulos exige recalibrar.
+ALTURA_NOMINAL_A = 1.90
+ALTURA_NOMINAL_B = 1.26
+
+#: Tipografia dos paineis, em pontos JA IMPRESSOS.
+PT_ROTULO = 7.5
+PT_TICK = 7.0
+PT_LEGENDA = 6.5
+PT_ANOTACAO = 6.0
+PT_NOTA = 6.5
+
 #: Um estilo por método. ``mfc`` vazado marca a variante que ignora a
 #: restrição; preenchido, a que a preserva.
 ESTILOS: dict[str, dict] = {
@@ -62,6 +96,17 @@ ESTILOS: dict[str, dict] = {
                     rotulo="QAOA mixer XY"),
 }
 ORDEM = ["AG", "AG-VIAVEL", "QAOA", "QAOA-XY"]
+
+#: Deslocamento do rótulo direto do último ponto, em pontos tipográficos.
+#: Os dois braços do QAOA terminam ambos em 24 qubits e, em escala
+#: logarítmica, 914 s e 1.263 s caem quase na mesma altura: um rótulo sobe,
+#: o outro desce, senão colidem.
+DESLOC_ROTULO: dict[str, tuple[float, float]] = {
+    "QAOA": (2, -7),
+    "QAOA-XY": (2, 7),
+    "AG": (3, -4),
+    "AG-VIAVEL": (3, 4),
+}
 
 SAIDA = Path("resultados/figuras")
 COMPARATIVO = Path("resultados/comparativo.csv")
@@ -90,6 +135,28 @@ def preparar_estilo() -> None:
         "figure.dpi": 110,
         "savefig.bbox": "tight",
         "savefig.pad_inches": 0.02,
+    })
+
+
+def estilo_painel() -> None:
+    """Tipografia para figura desenhada no tamanho final impresso.
+
+    Vale para os dois paineis lado a lado. Como nao ha reducao pelo LaTeX,
+    os pontos aqui sao os pontos que saem no papel.
+    """
+    preparar_estilo()
+    plt.rcParams.update({
+        "font.size": PT_ROTULO,
+        "axes.labelsize": PT_ROTULO,
+        "axes.titlesize": PT_ROTULO,
+        "legend.fontsize": PT_LEGENDA,
+        "xtick.labelsize": PT_TICK,
+        "ytick.labelsize": PT_TICK,
+        "xtick.major.size": 2.0,
+        "ytick.major.size": 2.0,
+        "xtick.major.pad": 2.0,
+        "ytick.major.pad": 2.0,
+        "axes.labelpad": 2.0,
     })
 
 
@@ -171,7 +238,7 @@ def gerar_historicos(n_culturas: int = 4) -> dict:
     """
     from algoritmo_genetico import ConfiguracaoAG, executar_ag
     from parametros import CENARIOS_POR_TAMANHO
-    from qaoa_rotacao import construir_hamiltoniano, executar_qaoa
+    from qaoa_rotacao import executar_qaoa
     from qubo_rotacao import ModeloQUBO
 
     modelo = ModeloQUBO(culturas=CENARIOS_POR_TAMANHO[n_culturas],
@@ -196,16 +263,18 @@ def gerar_historicos(n_culturas: int = 4) -> dict:
         print(f"  {rotulo}: {len(r.historico)} gerações, "
               f"{r.n_avaliacoes} avaliações, melhor {r.melhor_custo:.2f}")
 
-    escala = float(np.max(np.abs(
-        construir_hamiltoniano(modelo).coeffs.real)))
     for rotulo, mixer in (("QAOA", "X"), ("QAOA-XY", "XY")):
         r = executar_qaoa(modelo, p=2, maxiter=100, n_reinicios=3, seed=42,
                           mixer=mixer, threads=8)
-        # ``historico`` está na escala normalizada do otimizador; multiplicar
-        # por ``escala`` devolve o valor esperado na escala do custo QUBO.
+        # ``r.historico`` JÁ vem na escala do custo QUBO: o executar_qaoa
+        # aplica ``para_escala_qubo`` a cada valor antes de devolver. A versão
+        # anterior multiplicava de novo por max|coef|, e o resultado ficava
+        # 1.107 vezes maior que o verdadeiro. Dava para perceber pelo próprio
+        # gráfico: a série do QAOA ia de 7,3e6 a 1,09e7 numa instância cuja
+        # energia máxima possível é 30.164,88. Corrigido em 08/11/2026.
         dados["series"][rotulo] = {
             "x": list(range(1, len(r.historico) + 1)),
-            "y": [float(v) * escala for v in r.historico],
+            "y": [float(v) for v in r.historico],
             "grandeza": "valor esperado da energia",
         }
         print(f"  {rotulo}: {len(r.historico)} avaliações, "
@@ -251,9 +320,11 @@ def fig_convergencia(dados: dict) -> None:
                     label=e["rotulo"], clip_on=True)
         # A linha do ótimo só cabe no painel do AG: ali a ordenada é o custo
         # de uma solução concreta. No painel do QAOA a ordenada é a média da
-        # energia sobre toda a distribuição, penalidades incluídas -- uma
-        # grandeza que não é comparável com o custo do melhor plano, e cuja
-        # escala (10^6) faria o ótimo colar no eixo e parecer inalcançado.
+        # energia sobre toda a distribuição, penalidades incluídas, uma
+        # grandeza que não é comparável com o custo do melhor plano.
+        # A escala do painel do QAOA é de 10^3 a 10^4, e não 10^6 como dizia
+        # este comentário: os 10^6 eram efeito da multiplicação dupla pela
+        # escala, corrigida em 08/11/2026 na função gerar_historicos.
         if ax is ax1:
             ax.axhline(otimo, color=TINTA_FRACA, linewidth=0.8)
             ax.annotate(f"ótimo = {otimo:.2f}".replace(".", ","),
@@ -296,9 +367,11 @@ def fig_desvio(agg: dict, tamanhos: list[int]) -> None:
     Escala linear e não logarítmica: duas das quatro séries valem
     exatamente zero, que não existe em escala log.
     """
+    estilo_painel()
     fig, (ax_todo, ax_zoom) = plt.subplots(
-        2, 1, figsize=(6.3, 4.6), sharex=True,
-        gridspec_kw={"height_ratios": [1.0, 1.15], "hspace": 0.16})
+        2, 1,
+        figsize=(LARGURA_PAINEL_POL, ALTURA_NOMINAL_A), sharex=True,
+        gridspec_kw={"height_ratios": [1.0, 1.15], "hspace": 0.22})
     largura = 0.2
     base = np.arange(len(tamanhos))
 
@@ -328,35 +401,38 @@ def fig_desvio(agg: dict, tamanhos: list[int]) -> None:
                     # Barra de altura zero: sem rótulo direto, não se vê.
                     # Só no painel de detalhe -- na escala completa o
                     # rótulo flutuaria solto, longe de qualquer barra.
-                    ax.annotate("0,00", xy=(x, 0), xytext=(0, 3),
+                    ax.annotate("0,00", xy=(x, 0), xytext=(0, 2),
                                 textcoords="offset points", ha="center",
-                                va="bottom", fontsize=6.5, rotation=90,
-                                color=e["cor"])
+                                va="bottom", fontsize=PT_ANOTACAO,
+                                rotation=90, color=e["cor"])
                 elif ax is ax_zoom and h > teto:
                     # Barra que estoura o detalhe: diz o próprio valor,
                     # dentro da barra para não ser cortado pelo topo.
                     ax.annotate(f"{h:,.0f} %".replace(",", "."),
                                 xy=(x, teto * 0.52), ha="center",
-                                va="center", fontsize=6.5, rotation=90,
-                                color=e["cor"], zorder=4,
-                                bbox=dict(facecolor="white", pad=1.0,
+                                va="center", fontsize=PT_ANOTACAO,
+                                rotation=90, color=e["cor"], zorder=4,
+                                bbox=dict(facecolor="white", pad=0.8,
                                           edgecolor="none"))
-        ax.set_ylabel("Desvio do ótimo (%)")
         enfeitar(ax)
+    # Um rótulo para os dois painéis: ver o comentário em ``estilo_painel``.
+    fig.supylabel("Desvio do ótimo (%)", fontsize=PT_ROTULO, x=0.015)
 
     ax_zoom.set_ylim(0, teto)
     for ax, texto in ((ax_todo, "Escala completa"),
                       (ax_zoom, f"Detalhe: 0 a {teto:.0f} %")):
         ax.text(0.998, 0.97, texto, transform=ax.transAxes, va="top",
-                ha="right", fontsize=8, color=TINTA_FRACA)
+                ha="right", fontsize=PT_NOTA, color=TINTA_FRACA)
 
     ax_zoom.set_xticks(base)
     ax_zoom.set_xticklabels([f"{n}" for n in tamanhos])
     ax_zoom.set_xlabel("Variáveis binárias (qubits)")
-    ax_todo.legend(frameon=False, ncols=4, loc="lower center",
-                   bbox_to_anchor=(0.5, 1.0), fontsize=8,
-                   columnspacing=1.4, handlelength=1.8)
+    ax_todo.legend(frameon=False, ncols=2, loc="lower center",
+                   bbox_to_anchor=(0.5, 1.0), fontsize=PT_LEGENDA,
+                   columnspacing=1.0, handlelength=1.5,
+                   handletextpad=0.5, labelspacing=0.3, borderpad=0.0)
     salvar(fig, "desvio_por_tamanho")
+    preparar_estilo()
 
 
 def fig_tempo(agg: dict, tamanhos: list[int]) -> None:
@@ -365,7 +441,9 @@ def fig_tempo(agg: dict, tamanhos: list[int]) -> None:
     Log porque os valores cobrem cinco ordens de grandeza, de 8 ms a 620 s.
     Em escala linear as quatro curvas do AG colapsariam sobre o eixo.
     """
-    fig, ax = plt.subplots(figsize=(6.3, 3.4))
+    estilo_painel()
+    fig, ax = plt.subplots(
+        figsize=(LARGURA_PAINEL_POL, ALTURA_NOMINAL_B))
 
     for metodo in ORDEM:
         e = ESTILOS[metodo]
@@ -373,28 +451,39 @@ def fig_tempo(agg: dict, tamanhos: list[int]) -> None:
         ys = [agg[(n, metodo)]["tempo"] for n in xs]
         if not xs:
             continue
-        ax.plot(xs, ys, color=e["cor"], linestyle=e["ls"], linewidth=1.8,
-                marker=e["marker"], markersize=6, markerfacecolor=e["mfc"],
-                markeredgecolor=e["cor"], markeredgewidth=1.3,
+        ax.plot(xs, ys, color=e["cor"], linestyle=e["ls"], linewidth=1.2,
+                marker=e["marker"], markersize=3.6, markerfacecolor=e["mfc"],
+                markeredgecolor=e["cor"], markeredgewidth=0.9,
                 label=e["rotulo"])
         # Rótulo direto apenas no último ponto de cada série.
-        ax.annotate(f"{ys[-1]:.3g}".replace(".", ",") + " s",
-                    xy=(xs[-1], ys[-1]), xytext=(5, 0),
-                    textcoords="offset points", va="center", fontsize=7.5,
-                    color=e["cor"])
+        v = ys[-1]
+        if v >= 100:
+            txt = f"{v:,.0f}".replace(",", ".")
+        elif v >= 1:
+            txt = f"{v:.1f}".replace(".", ",")
+        else:
+            txt = f"{v:.4f}".rstrip("0").replace(".", ",")
+        ax.annotate(txt + " s",
+                    xy=(xs[-1], v), xytext=DESLOC_ROTULO.get(metodo, (3, 0)),
+                    textcoords="offset points", va="center",
+                    fontsize=PT_ANOTACAO, color=e["cor"])
 
     ax.set_yscale("log")
     ax.set_xticks(tamanhos)
-    ax.set_xlim(min(tamanhos) - 1.2, max(tamanhos) + 4.5)
+    ax.set_xlim(min(tamanhos) - 1.2, max(tamanhos) + 5.5)
     ax.set_xlabel("Variáveis binárias (qubits)")
     ax.set_ylabel("Tempo por execução (s)")
     enfeitar(ax)
     # Legenda acima dos eixos: dentro do quadro ela colidia com os rótulos
     # diretos do último ponto de cada série, à direita.
-    ax.legend(frameon=False, ncols=4, loc="lower center",
-              bbox_to_anchor=(0.5, 1.0), fontsize=8,
-              columnspacing=1.4, handlelength=2.4)
+    # O 1,0 encostava a legenda no rótulo direto de "1.263 s". O painel (b)
+    # é o mais baixo do float e sobra altura, então a legenda sobe.
+    ax.legend(frameon=False, ncols=2, loc="lower center",
+              bbox_to_anchor=(0.5, 1.10), fontsize=PT_LEGENDA,
+              columnspacing=1.0, handlelength=1.8,
+              handletextpad=0.5, labelspacing=0.3, borderpad=0.0)
     salvar(fig, "tempo_por_tamanho")
+    preparar_estilo()
 
 
 def fig_camadas(linhas: list[dict]) -> None:

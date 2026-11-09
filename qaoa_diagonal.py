@@ -211,7 +211,7 @@ def validar_contra_aer(modelo: ModeloQUBO, p: int = 2,
     energias_circ = energias_do_circuito(modelo, energias)
 
     hamiltoniano = construir_hamiltoniano(modelo)
-    ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p).decompose(reps=3)
+    ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p).decompose(reps=4)
     backend = AerSimulator(method="statevector")
     circuito = ansatz.copy()
     circuito.save_statevector()

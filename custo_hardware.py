@@ -68,7 +68,11 @@ DISPOSITIVOS = {
 
 #: Medições por avaliação e avaliações por execução, como no experimento.
 SHOTS = 4096
-AVALIACOES = 131          # média medida: entre 118 e 144
+# Medido em 08/11/2026, DEPOIS da correção da escala do Hamiltoniano:
+# 297,5 em média, entre 263 e 300, sobre 171 execuções. Antes da correção
+# eram 127,1, porque o COBYLA parava por falta de melhora num relevo
+# plano, e não por ter convergido. O orçamento é 3 reinícios x maxiter 100.
+AVALIACOES = 298
 #: Sobrecusto por medição além da duração do circuito: leitura e reinício.
 OVERHEAD_SHOT_US = 4.0
 
@@ -166,12 +170,19 @@ def main() -> None:
     print()
     print("'QPU' é o tempo de processador quântico por execução do laço")
     print("híbrido completo, sem fila nem ida e volta clássica. Compare com os")
-    print("557,2 s de simulação da instância de 24 variáveis com mixer XY.")
+    # 08/11/2026: era 557,2 s, valor anterior à correção da escala do
+    # Hamiltoniano. A média nova é 1.270 s em 21 execuções, e deve ser
+    # reconferida quando a célula fechar em 30.
+    print("1.270 s de simulação da instância de 24 variáveis com mixer XY.")
     print()
     print("'P(sem erro)' é exp(-portas_2q x erro_2q): a probabilidade de o")
     print("circuito inteiro rodar sem nenhum erro de porta de dois qubits.")
     print("Confronte com a probabilidade ideal de amostrar o ótimo, que o")
-    print("trabalho mediu em 2,4e-3 para 24 qubits com mixer XY. Se")
+    # 08/11/2026: era 2,4e-3, também anterior à correção da escala. O valor
+    # novo é 7,8e-4 de média e 2,9e-4 de mediana em 21 execuções, isto é, da
+    # MESMA ordem do P(sem erro) calculado acima, o que muda a leitura: com
+    # este orçamento de medições o ótimo deixa de ser observável em hardware.
+    print("trabalho mediu em 2,9e-4 (mediana) para 24 qubits com mixer XY. Se")
     print("'P(sem erro)' for da mesma ordem ou menor, o sinal se perde no")
     print("ruído e o ótimo não é observável com este orçamento de medições.")
 

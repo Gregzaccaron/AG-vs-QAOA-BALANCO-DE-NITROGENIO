@@ -1,2 +1,11 @@
 __pycache__/
 *.pyc
+
+# Logs de execucao: regerados a cada rodada, nunca versionados.
+*.log
+
+# Saidas regeneraveis.
+resultados/figuras/
+resultados/teste_rapido.*
+resultados/somente_ag.*
+resultados/parcial_*.csv

@@ -35,6 +35,39 @@ Para um teste rápido, que termina em poucos segundos e não usa o QAOA:
 python experimento_comparativo.py --execucoes 3 --sem-qaoa --ags padrao viavel
 ```
 
+### O caminho mais fácil: `rodar.py`
+
+Quem não quiser montar linha de comando pode usar o lançador interativo:
+
+```bash
+python rodar.py
+```
+
+No Windows, clique duas vezes em **`RodarTeste.bat`**, que abre o terminal e
+chama o mesmo lançador.
+
+Ele começa mostrando o que a máquina tem (processador, núcleos físicos,
+threads lógicas, memória total e livre, versões do Python e das bibliotecas) e
+o que ela aguenta, instância por instância: quanto ocupa o vetor de estado,
+quanto o Aer precisa com folga, e quanto leva **uma** execução do caso mais
+caro. Em seguida oferece um menu com o teste rápido, o experimento principal, a
+varredura de camadas e um modo paralelo, pergunta quantas execuções e mostra a
+duração estimada antes de começar.
+
+As linhas de comando que ele monta são as do artigo, com `--recomecar` e com os
+padrões corrigidos. É o jeito de reproduzir sem cair em nenhuma das armadilhas
+descritas na seção 2.
+
+**Sobre o modo paralelo.** Ele divide as execuções entre processos isolados,
+cada um com o seu CSV, e a divisão respeita a semente: como o experimento usa
+`seed = seed_base + k`, três processos partindo de 42, 52 e 62 cobrem
+exatamente as sementes 42 a 71 de uma execução serial de 30. As colunas de
+**qualidade** saem idênticas às da execução serial. A coluna de **tempo** não
+sai comparável, porque os processos disputam memória e cache, e esse atraso não
+é recuperável por multiplicação. Use o modo paralelo para obter qualidade
+depressa e meça tempo numa passada separada, com um processo só. Foi assim que
+os tempos publicados foram medidos.
+
 ---
 
 ## 2. Reproduzindo os resultados publicados
@@ -52,13 +85,22 @@ python experimento_comparativo.py \
     --qaoa-shots 4096 \
     --max-qubits-qaoa 24 \
     --threads 8 \
-    --seed-base 42
+    --seed-base 42 \
+    --recomecar
 ```
 
 **Atenção aos padrões.** `--qaoa-maxiter` vale 150 por omissão e o artigo usou
 100; `--ags` e `--mixers` trazem só uma variante cada por omissão, e o
 delineamento fatorial exige as duas de cada. Sem esses argumentos explícitos o
 resultado não é o publicado.
+
+**Por que `--recomecar`.** Sem ele o experimento *retoma* do CSV existente, e
+pula toda linha já gravada. Num diretório que já tenha um `comparativo.csv` o
+comando aparenta não executar nada. Pior: se o CSV for de uma versão anterior
+do código, as linhas antigas são mantidas sem aviso, e o resultado final mistura
+duas versões. A retomada é útil para continuar uma execução interrompida, e é
+isso que o `reproduzir.ps1` faz na célula de 24 qubits; para gerar os resultados
+do zero, use `--recomecar`.
 
 | | |
 |---|---|
@@ -72,11 +114,17 @@ A varredura do número de camadas é separada, e foi feita em quatro execuções
 ```bash
 for p in 1 2 3 4; do
   python experimento_comparativo.py --execucoes 5 --qaoa-p $p \
-      --mixers X XY --max-qubits-qaoa 20 \
+      --mixers X XY --max-qubits-qaoa 20 --recomecar \
       --saida resultados/varredura_p$p.csv \
       --log resultados/varredura_p.log
 done
 ```
+
+Note que a varredura **não** passa `--qaoa-maxiter`, portanto usa o padrão de
+150, enquanto o experimento principal usa 100. A varredura é internamente
+consistente, pois todos os valores de `p` recebem o mesmo orçamento, que é o
+que a comparação entre camadas exige; mas os dois conjuntos de dados não são
+diretamente comparáveis entre si quanto ao número de avaliações.
 
 Não há como desligar o algoritmo genético: ele roda junto, mas custa
 milissegundos e as linhas dele nesses arquivos simplesmente não são usadas por
@@ -102,19 +150,28 @@ os arquivos para subpastas** sem ajustar os `import`.
 | `qubo_rotacao.py` | Constrói a matriz `Q`. Contém a classe `Pesos`, com os sete termos da função objetivo, e as rotinas de validação da formulação. É o único lugar onde o modelo é definido. |
 | `algoritmo_genetico.py` | Laço evolutivo. Duas variantes, escolhidas por `preserva_viabilidade` na `ConfiguracaoAG`. |
 | `qaoa_rotacao.py` | Circuito QAOA, conversão QUBO para Hamiltoniano de Ising, os dois operadores de mistura e o laço híbrido com COBYLA. |
-| `qaoa_diagonal.py` | Distribuição de probabilidade exata do estado final, aproveitando que o Hamiltoniano de custo é diagonal na base computacional. É de onde saem a probabilidade do ótimo e o fator de amplificação. |
+| `qaoa_diagonal.py` | Evolução do estado aproveitando que o Hamiltoniano de custo é diagonal na base computacional. **Nenhum outro módulo o importa:** serve para validar a simulação e registra um resultado negativo de desempenho, documentado no seu próprio docstring. A probabilidade do ótimo e a amplificação usadas no artigo saem de `qaoa_rotacao.energias_qubo` com `metodo_valor_esperado="diagonal"`. |
 | `experimento_comparativo.py` | Orquestra o experimento: percorre instâncias, métodos e repetições, e grava o CSV. É o ponto de entrada. |
 | `escalabilidade.py` | Mede tempo e memória por instância, sem otimizar nada. Gera `resultados/escalabilidade.{csv,json}`. |
-| `progresso.py` | Barra de progresso e contagem exata de avaliações da função objetivo. |
+| `progresso.py` | Barra de progresso das execuções longas do QAOA. A contagem de avaliações do algoritmo genético não vem daqui: é o `n_avaliacoes` mantido em `algoritmo_genetico.py`. |
 | `graficos.py` | As figuras do artigo. Legíveis em preto e branco. |
 | `exportar_xlsx.py` | Converte o CSV em `.xlsx` de duas abas. Sem dependência externa. |
+| `custo_hardware.py` | Estima o custo de executar o mesmo circuito em hardware quântico real, a partir da contagem de portas e de preços publicados. Não executa nada em nuvem. |
+| `rodar.py` | Lançador interativo: mostra o que a máquina tem e aguenta, e monta as linhas de comando do artigo. Não contém lógica de experimento. |
+| `RodarTeste.bat` | Atalho clicável no Windows. Abre o terminal e chama `rodar.py`. |
+| `reproduzir.ps1` | Reproduz todos os resultados em sequência, do mais barato ao mais caro, para rodar sem supervisão. |
 
 ### Por que o algoritmo genético é próprio, e não PyGAD ou DEAP
 
 Porque a **contagem de avaliações da função objetivo precisa ser exata**: é ela
 que permite comparar dois métodos cujo custo por iteração difere em seis ordens
 de grandeza. Numa implementação própria essa contagem fica explícita no código
-e pode ser auditada (ver `progresso.ContadorDeAvaliacoes`).
+e pode ser auditada: é o contador `n_avaliacoes` de `algoritmo_genetico.py`.
+
+Um critério a declarar: a elite é reavaliada a cada geração, em
+`avaliar_populacao`, mas **não** é somada a `n_avaliacoes`, porque o custo
+desses indivíduos já era conhecido da geração anterior. A contagem mede
+avaliações de indivíduos novos.
 
 ---
 
@@ -168,6 +225,10 @@ alteração de termo ou de peso:
 
 1. **Por enumeração exaustiva**, que o mínimo global sobre todo o espaço
    `{0,1}^n` coincide com o mínimo sobre as soluções agronomicamente viáveis.
+   No experimento essa checagem só roda **até 20 qubits**
+   (`experimento_comparativo.py`, `exato = modelo.n_variaveis <= 20`), porque
+   enumerar `2^n` fica caro acima disso. Em 24 e 28 qubits ela foi conferida à
+   mão e coincidiu; em 32 só existe a checagem analítica do item 2.
 2. **Analiticamente**, que cada penalidade supera a maior economia que a
    violação da restrição correspondente poderia proporcionar
    (`ModeloQUBO.verificar_penalidades`).
@@ -206,8 +267,16 @@ Os demais arquivos: `varredura_p1..4.csv` (efeito do número de camadas),
 
 ## 6. O que esperar
 
-Reproduzindo o comando da seção 2, estes são os números publicados. Desvio
-percentual em relação ao ótimo global, obtido por enumeração exaustiva.
+Reproduzindo o comando da seção 2, estes são os números publicados. O desvio é
+percentual em relação ao `custo_otimo` da coluna do CSV, que vem de
+`otimo_viavel()`, isto é, o melhor plano **viável**. Ele coincide com o mínimo
+global do QUBO em todas as instâncias verificadas, de 16 a 28 qubits, o que é
+justamente o que a validação da formulação assegura.
+
+> **Aviso (08/11/2026):** a tabela abaixo é anterior à correção da escala do
+> γ e **não vale mais** para as linhas de QAOA. Será substituída quando a
+> reexecução terminar. As linhas de AG permanecem válidas, porque o código do
+> algoritmo genético não foi alterado.
 
 | Qubits | Configuração | Desvio médio | Ótimos | Válidas | Tempo |
 |---|---|---|---|---|---|

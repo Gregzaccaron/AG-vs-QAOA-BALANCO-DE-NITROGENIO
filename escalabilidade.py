@@ -104,7 +104,14 @@ def medir_instancia(
 
     t0 = time.perf_counter()
     hamiltoniano = construir_hamiltoniano(modelo)
-    ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p).decompose(reps=3)
+    # reps=4 para casar com o experimento (qaoa_rotacao.py:571). Com
+    # reps=3 a decomposição para antes e a contagem de portas não
+    # corresponde à publicada.
+    #
+    # Escopo: este módulo mede SÓ o mixer X. As contagens aqui não
+    # representam o circuito do mixer XY, que é cerca de duas vezes mais
+    # profundo. Para o XY, use as colunas do comparativo.csv.
+    ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p).decompose(reps=4)
     backend = AerSimulator(method="statevector", precision=precisao)
     circuito = ansatz.copy()
     circuito.save_statevector()
@@ -244,7 +251,7 @@ def contar_portas(n_culturas: int, n_periodos: int, p: int) -> int | None:
     )
     ansatz = QAOAAnsatz(
         cost_operator=construir_hamiltoniano(modelo), reps=p
-    ).decompose(reps=3)
+    ).decompose(reps=4)
     return sum(ansatz.count_ops().values())
 
 

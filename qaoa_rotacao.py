@@ -532,18 +532,40 @@ def executar_qaoa(
 
     hamiltoniano = construir_hamiltoniano(modelo)
     _h, _J, const_ising = qubo_para_ising(modelo)
+
+    # --- normalização do Hamiltoniano de custo ----------------------------
+    # Corrigido em 08/11/2026. A versão anterior montava o ansatz com o
+    # Hamiltoniano BRUTO e dividia apenas o VALOR DE SAÍDA da função objetivo
+    # pela escala, afirmando em comentário que isso "devolve os parâmetros a
+    # uma escala O(1)". Não devolve: dividir a saída por uma constante não
+    # move o mínimo no espaço de parâmetros, porque o circuito continua
+    # aplicando exp(-i·γ·H) com H bruto. Com max|coef| = 1107 em 16 qubits, o
+    # γ útil ficava perto de 0,005, enquanto os pontos iniciais eram 0,1 a 0,6
+    # e os sorteios iam até π, de 20 a 600 vezes acima. Medido em 16 qubits:
+    # nesses pontos o valor esperado ficava entre 8008 e 8463, contra 8052 da
+    # média de um sorteio uniforme, isto é, o circuito não fazia nada.
+    #
+    # Agora a escala entra DENTRO do circuito. Como exp(-i·γ·H/escala) é o
+    # mesmo que exp(-i·(γ/escala)·H), o γ ótimo passa a ser O(1) e os pontos
+    # iniciais caem na região certa. O observável do ramo "aer" permanece o
+    # Hamiltoniano bruto, para que o valor devolvido continue na escala do
+    # QUBO.
+    escala = float(np.max(np.abs(hamiltoniano.coeffs.real)))
+    escala = escala if escala > 0 else 1.0
+    hamiltoniano_normalizado = hamiltoniano * (1.0 / escala)
+
     if mixer.upper() == "XY":
         # Mixer e estado inicial confinam a evolução ao subespaço viável.
         # Os dois andam juntos: o mixer não sai de onde está, e o estado
         # inicial é o que o coloca dentro da região que interessa.
         ansatz = QAOAAnsatz(
-            cost_operator=hamiltoniano,
+            cost_operator=hamiltoniano_normalizado,
             reps=p,
             mixer_operator=mixer_xy(modelo, topologia_xy),
             initial_state=estado_inicial_onehot(modelo),
         )
     elif mixer.upper() == "X":
-        ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p)
+        ansatz = QAOAAnsatz(cost_operator=hamiltoniano_normalizado, reps=p)
     else:
         raise ValueError(f"mixer desconhecido: {mixer!r} (use 'X' ou 'XY')")
     ansatz = ansatz.decompose(reps=4)
@@ -557,13 +579,10 @@ def executar_qaoa(
         }
     }
 
-    # Os coeficientes do Hamiltoniano são grandes (as penalidades chegam à casa
-    # das centenas), o que colocaria os γ ótimos numa escala minúscula e
-    # dificultaria a convergência do otimizador. Normalizar o valor esperado
-    # devolve os parâmetros a uma escala O(1); como isso é uma reescala
-    # monotônica, o mínimo não se desloca.
-    escala = float(np.max(np.abs(hamiltoniano.coeffs.real)))
-    escala = escala if escala > 0 else 1.0
+    # A ``escala`` já foi calculada acima, antes do ansatz, porque entra no
+    # circuito. Aqui ela serve só para converter o valor esperado entre a
+    # escala do QUBO, que é a legível, e a normalizada, que é a que o
+    # otimizador enxerga.
 
     # --- como calcular o valor esperado -----------------------------------
     energias: np.ndarray | None = None
@@ -636,16 +655,59 @@ def executar_qaoa(
     reinicio_vencedor = 0
     valores_por_reinicio: list[float] = []
 
+    # O QAOAAnsatz ordena os parâmetros com todos os β antes de todos os γ,
+    # verificado em 08/11/2026 nos dois mixers: ['β[0]', 'β[1]', 'γ[0]',
+    # 'γ[1]']. As faixas abaixo dependem dessa ordem, por isso ela é conferida
+    # em tempo de execução, e não apenas suposta.
+    nomes = [par.name for par in ansatz.parameters]
+    ordem_esperada = (ansatz.num_parameters == 2 * p
+                      and all(n.startswith("β") for n in nomes[:p])
+                      and all(n.startswith("γ") for n in nomes[p:]))
+
     for r in range(max(1, n_reinicios)):
-        if r == 0:
+        if not ordem_esperada:
+            # Caminho de segurança: sem a ordem conhecida não dá para separar
+            # as faixas de β e γ, então sorteia tudo em [0, π].
+            iniciais = rng.uniform(0, np.pi, ansatz.num_parameters)
+        elif r == 0:
             # Inicialização adiabática: γ crescente e β decrescente ao longo
             # das camadas, imitando uma evolução adiabática discretizada.
-            iniciais = np.concatenate([np.linspace(0.6, 0.1, p),
-                                       np.linspace(0.1, 0.6, p)])
-            if iniciais.size != ansatz.num_parameters:
-                iniciais = rng.uniform(0, np.pi, ansatz.num_parameters)
+            #
+            # Com o Hamiltoniano normalizado, γ passa a viver em O(1), que é
+            # todo o ponto da correção de 08/11/2026. Mas atenção ao que a
+            # varredura em grade de fato mostrou, porque a versão anterior
+            # deste comentário afirmava o contrário e estava errada:
+            #
+            #   - a varredura com p=1 situou o γ de MENOR energia perto de
+            #     5,3 em 16 qubits e de 6,8 em 20 qubits, em unidades
+            #     normalizadas, isto é, FORA do intervalo [0, π];
+            #   - ainda assim, sortear γ em [0, 2π] não melhorou o resultado
+            #     (5 acertos em 10 sementes nos dois casos), porque o relevo
+            #     é periódico e tem vários mínimos locais de qualidade
+            #     parecida. A faixa estreita se defende por isso, não por
+            #     conter o mínimo global.
+            #
+            # Este início é DETERMINÍSTICO: não consome o ``rng``. Logo, dos
+            # ``n_reinicios`` pontos de partida, apenas os demais são
+            # aleatórios, e com o padrão de 3 são 1 fixo e 2 sorteados. Isso
+            # precisa constar de Materiais e Métodos, e explica a
+            # bimodalidade do mixer X: quando este ponto fixo vence, todas as
+            # sementes devolvem o mesmo valor.
+            iniciais = np.concatenate([
+                np.linspace(0.6, 0.1, p),
+                np.linspace(0.3 * np.pi, 0.9 * np.pi, p),
+            ])
         else:
-            iniciais = rng.uniform(0, np.pi, ansatz.num_parameters)
+            # β tem período π no mixer X. Para γ, [0, π] NÃO contém o mínimo
+            # global do relevo normalizado (ver o comentário do reinício 0):
+            # é uma faixa estreita, escolhida porque alargá-la para [0, 2π]
+            # foi medido e não melhorou, e porque mantém o passo inicial do
+            # COBYLA, que é 1,0 por omissão, na mesma ordem de grandeza da
+            # região explorada.
+            iniciais = np.concatenate([
+                rng.uniform(0, np.pi / 2, p),
+                rng.uniform(0, np.pi, p),
+            ])
 
         opt = minimize(
             funcao_custo, iniciais, method=otimizador,
@@ -763,7 +825,8 @@ def executar_qaoa(
 
 
 def validar_valor_esperado(
-    modelo: ModeloQUBO, p: int = 2, seed: int | None = 0
+    modelo: ModeloQUBO, p: int = 2, seed: int | None = 0,
+    mixer: str = "X",
 ) -> float:
     """Valida o método diagonal contra o Aer, no mesmo conjunto de parâmetros.
 
@@ -771,6 +834,13 @@ def validar_valor_esperado(
     esperados. Esta checagem existe porque o método diagonal reimplementa o
     cálculo do valor esperado fora do Qiskit; sem ela, um erro de convenção de
     índice passaria despercebido e contaminaria todos os resultados.
+
+    Parameters
+    ----------
+    mixer:
+        ``"X"`` ou ``"XY"``. Os dois precisam ser validados: o ramo XY usa
+        estado inicial e operador de mistura próprios, e um erro de convenção
+        ali não apareceria na validação do ramo X.
 
     Returns
     -------
@@ -783,7 +853,19 @@ def validar_valor_esperado(
     n = modelo.n_variaveis
     hamiltoniano = construir_hamiltoniano(modelo)
     _h, _J, const_ising = qubo_para_ising(modelo)
-    ansatz = QAOAAnsatz(cost_operator=hamiltoniano, reps=p).decompose(reps=3)
+    if mixer.upper() == "XY":
+        ansatz = QAOAAnsatz(
+            cost_operator=hamiltoniano,
+            reps=p,
+            mixer_operator=mixer_xy(modelo),
+            initial_state=estado_inicial_onehot(modelo),
+        ).decompose(reps=4)
+    elif mixer.upper() == "X":
+        ansatz = QAOAAnsatz(
+            cost_operator=hamiltoniano, reps=p
+        ).decompose(reps=4)
+    else:
+        raise ValueError(f"mixer desconhecido: {mixer!r}. Use 'X' ou 'XY'.")
 
     energias = energias_qubo(modelo)
     backend = AerSimulator(method="statevector")
