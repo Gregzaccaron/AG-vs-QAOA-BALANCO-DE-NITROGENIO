@@ -21,8 +21,8 @@ REM                           DENTRO de _python\, com TargetDir, entao nao
 REM                           mexe no sistema nem pede administrador.
 REM    5. download         baixa o portatil de python.org (11 MB).
 REM
-REM  Depois instala as bibliotecas com pip, roda uma demonstracao e abre o
-REM  menu.
+REM  Depois instala as bibliotecas com pip e abre o menu. NADA e executado
+REM  automaticamente: quem roda escolhe o que fazer, ou sai sem rodar nada.
 REM
 REM  INTERNET: necessaria na primeira vez, mesmo com instalador na pasta,
 REM  porque as bibliotecas (numpy, scipy, qiskit) vem do PyPI e somam uns
@@ -197,7 +197,10 @@ echo   [3/4] Instalando bibliotecas. Sao cerca de 150 MB, de 2 a 5 min.
 echo         Pode deixar rodando.
 echo.
 %PYEXE% -m pip install --upgrade pip --quiet --no-warn-script-location >nul 2>nul
-%PYEXE% -m pip install -r "%REQ%" --no-warn-script-location
+REM  --only-binary=:all: proibe o pip de construir pacote do codigo-fonte.
+REM  Sem isso, se faltasse um pacote pronto ele tentaria compilar e pediria o
+REM  compilador C++. Com isso, falha na hora e com mensagem util.
+%PYEXE% -m pip install -r "%REQ%" --only-binary=:all: --no-warn-script-location
 if !ERRORLEVEL! NEQ 0 goto falha_libs
 %PYEXE% -c "import numpy,scipy,matplotlib,qiskit,qiskit_aer" >nul 2>nul
 if !ERRORLEVEL! NEQ 0 goto falha_libs
@@ -208,42 +211,31 @@ REM -------------------------------------------------------------------
 REM  4. Demonstracao e menu.
 REM -------------------------------------------------------------------
 :rodar
+REM  Nada e executado automaticamente aqui. O .bat so prepara o ambiente e
+REM  entrega o menu; quem esta usando decide o que rodar, inclusive nao
+REM  rodar nada. A demonstracao que antes comecava sozinha era a opcao 1 com
+REM  outro nome, e continua disponivel por escolha.
 echo.
 echo  ===================================================================
 echo   [4/4] AMBIENTE PRONTO
 echo  ===================================================================
 echo.
-echo   Demonstracao: uma execucao de cada metodo em 16 e 20 variaveis
-echo   binarias, comparando o algoritmo genetico com o QAOA nos dois
-echo   operadores de mistura.
+echo   Nada sera executado sem voce pedir.
 echo.
-echo   Leva cerca de 1 minuto e meio. A linha de progresso se reescreve no
-echo   lugar, entao e normal o cursor ficar parado entre uma etapa e outra.
+echo   No menu a seguir:
 echo.
-pause
+echo     opcao 1   teste rapido, uma execucao de cada metodo em 16 e 20
+echo               variaveis binarias. Cerca de 1 minuto e meio. E o jeito
+echo               mais rapido de ver o QAOA e o algoritmo genetico lado
+echo               a lado.
+echo     opcao 2   so os algoritmos geneticos, 30 execucoes. Uns 6 s.
+echo     opcao 4   o experimento completo do artigo, 480 execucoes.
+echo               Cerca de 19 horas.
+echo     opcao 8   mostra de novo o que esta maquina aguenta.
+echo     opcao 0   sair sem rodar nada.
 echo.
-echo  -------------------------------------------------------------------
-echo   RODANDO A DEMONSTRACAO... aguarde
-echo  -------------------------------------------------------------------
-echo.
-
-%PYEXE% 4-experimento\experimento_comparativo.py --execucoes 1 ^
-    --ags padrao viavel --mixers X XY --qaoa-p 2 --qaoa-maxiter 100 ^
-    --qaoa-reinicios 3 --qaoa-shots 4096 --max-qubits-qaoa 20 ^
-    --threads 8 --seed-base 42 --recomecar ^
-    --saida resultados/demonstracao.csv --log resultados/demonstracao.log
-
-echo.
-echo  ===================================================================
-echo   Gravado em resultados\demonstracao.csv
-echo.
-echo   Compare com resultados\comparativo.csv, que traz as 480 execucoes
-echo   publicadas: os custos devem bater exatamente.
-echo.
-echo  ===================================================================
-echo.
-echo   Abrindo o menu. A opcao 1 e um teste rapido; a 4 e o experimento
-echo   completo do artigo; a 0 sai.
+echo   Os resultados publicados ja estao em resultados\comparativo.csv, e
+echo   nao e preciso rodar nada para consulta-los.
 echo.
 pause
 echo.
@@ -276,7 +268,18 @@ goto fim
 :falha_libs
 echo.
 echo   [X] A instalacao das bibliotecas nao se completou.
-echo       Tente de novo (downloads parciais sao retomados), ou rode:
+echo.
+echo       NAO e preciso ter Visual Studio Code, nem nenhum editor. Se a
+echo       mensagem acima falou em "Microsoft Visual C++ 14.0 or greater
+echo       is required", o problema e outro: o pip nao achou um pacote
+echo       pronto para este Python e tentou compilar.
+echo.
+echo       Solucao: apague a pasta _python e rode este arquivo de novo.
+echo       Ele vai baixar o Python 3.14.6 portatil, para o qual existem
+echo       pacotes prontos de todas as bibliotecas, e nada sera compilado.
+echo.
+echo       Se persistir, pode ser rede com proxy. Tente de outra rede, ou
+echo       rode manualmente para ver a mensagem inteira:
 echo         %PYEXE% -m pip install -r %REQ%
 goto fim
 
@@ -298,9 +301,20 @@ for /f "delims=" %%r in ('%CAND% -c "print('PYOK')" 2^>nul') do (
 exit /b
 
 :testar_completo
+REM  Diferente de :testar, aqui nao basta executar: o Python do sistema so
+REM  serve se for 3.14 de 64 bits, a mesma versao que produziu os resultados.
+REM
+REM  Nao e preciosismo. As bibliotecas estao travadas em versoes que so tem
+REM  pacote pronto para 3.11 ou mais novo, de 64 bits. Num Python 3.9 ou de
+REM  32 bits o pip tentaria COMPILAR numpy e scipy do codigo-fonte e exigiria
+REM  o compilador C++ das Build Tools, que quase ninguem tem. Alem disso, o
+REM  artigo so reproduz com a mesma versao: ver a secao 7 do README tecnico.
+REM
+REM  Qualquer outro Python do sistema e ignorado, e o portatil 3.14.6 e usado
+REM  no lugar. Nada do que ja estiver instalado na maquina e alterado.
 set "CAND=%~1"
 set "BOM="
-for /f "delims=" %%r in ('%CAND% -c "print('PYOK')" 2^>nul') do (
+for /f "delims=" %%r in ('%CAND% -c "import sys;v=sys.version_info;print('PYOK' if v[0]==3 and v[1]==14 and sys.maxsize>4294967296 else 'NO')" 2^>nul') do (
     if "%%r"=="PYOK" set "BOM=1"
 )
 if not defined BOM exit /b

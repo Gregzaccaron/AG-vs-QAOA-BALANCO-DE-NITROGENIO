@@ -23,7 +23,12 @@ O arquivo cuida de tudo sozinho:
 | 1 | Procura um Python na máquina |
 | 2 | Se não houver, baixa o Python 3.14.6 portátil (11 MB) **para dentro desta pasta** |
 | 3 | Instala numpy, scipy, matplotlib e qiskit |
-| 4 | Roda uma demonstração de 1 minuto e abre o menu |
+| 4 | Abre o menu e espera você escolher |
+
+**Nada é executado sozinho.** O `COMECAR_AQUI.bat` só prepara o ambiente e
+abre o menu; quem estiver usando escolhe o que rodar, ou sai sem rodar nada.
+Os resultados publicados já vêm na pasta, em `resultados/comparativo.csv`, e
+não é preciso executar nada para consultá-los.
 
 Na primeira vez leva de 3 a 6 minutos, quase tudo em download. Depois abre na
 hora.
@@ -125,6 +130,53 @@ Os scripts de análise rodam a partir da **raiz** da pasta, não de dentro dela:
 
 ---
 
+---
+
+## Preciso instalar mais alguma coisa?
+
+**Não.** Nem Visual Studio Code, nem Anaconda, nem Git, nem compilador. Só
+clicar no `COMECAR_AQUI.bat`. Ele cuida do Python e das bibliotecas sozinho.
+
+O **Visual Studio Code é um editor de texto** e não participa de nada aqui.
+Se alguém disser que precisa dele, está confundindo com outra coisa, que vale
+a pena explicar porque o nome é parecido:
+
+### O erro do "Microsoft Visual C++ 14.0"
+
+Em alguns computadores a instalação das bibliotecas falha assim:
+
+```
+error: Microsoft Visual C++ 14.0 or greater is required.
+Get it with "Microsoft C++ Build Tools"
+```
+
+Isso **não é o Visual Studio Code**. É um compilador de C++, programa
+diferente, de uns 6 GB. E **você não precisa instalá-lo.**
+
+O que acontece é o seguinte: as bibliotecas (numpy, scipy, qiskit) são
+distribuídas prontas, já compiladas, para cada versão de Python. Quando o pip
+não encontra a versão pronta que serve para o Python da máquina, ele tenta
+construir a biblioteca do zero, e aí precisa do compilador. Isso ocorre quando
+o Python instalado é antigo demais (anterior ao 3.11) ou é de 32 bits.
+
+**A solução é não usar aquele Python.** O `COMECAR_AQUI.bat` agora faz isso
+sozinho: ele só aproveita um Python que já exista na máquina se for a versão
+3.14 de 64 bits, a mesma que produziu os resultados do artigo. Qualquer outra,
+ele ignora e baixa o Python 3.14.6 portátil para dentro da pasta, para o qual
+todas as bibliotecas têm versão pronta. Nada é compilado em momento nenhum.
+
+Se mesmo assim der erro, apague a pasta `_python` e rode o
+`COMECAR_AQUI.bat` de novo.
+
+### Isso estraga o Python que eu já tenho?
+
+Não. O Python portátil fica em `_python\`, dentro desta pasta. Não altera o
+`PATH`, não mexe no registro, não aparece em "Adicionar ou remover programas"
+e não conversa com nenhum outro Python da máquina. Para remover, apague a
+pasta.
+
+---
+
 ## Dois avisos do Windows
 
 **"O Windows protegeu o seu computador"** (tela azul do SmartScreen). Acontece
@@ -138,7 +190,7 @@ executar.
 
 ---
 
-## Depois da demonstração
+## O menu
 
 O menu oferece:
 
