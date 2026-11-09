@@ -567,9 +567,29 @@ def main() -> None:
         print("  processo, depois com %d, e compare o tempo de parede."
               % (d["logicos"] // thr))
 
-    if d["libs"]["qiskit"] == "AUSENTE":
+    # numpy e scipy não são opcionais: o algoritmo genético é vetorizado e o
+    # teste de Mann-Whitney vem do scipy. Sem eles NENHUMA opção roda, nem a
+    # 2. O Qiskit, sim, é opcional, e só desliga o QAOA.
+    essenciais = [m for m in ("numpy", "scipy")
+                  if d["libs"].get(m) == "AUSENTE"]
+    pip_cmd = "%s -m pip install -r requirements.txt" % (
+        os.path.basename(sys.executable) or "python")
+
+    if essenciais:
         print()
-        print("  ** Sem Qiskit só as opções 2 e 8 funcionam.")
+        print("  " + "=" * 68)
+        print("  ** FALTA INSTALAR: %s" % ", ".join(essenciais))
+        print("  " + "=" * 68)
+        print("     Nenhum experimento roda sem isso. Nesta pasta, execute:")
+        print()
+        print("         %s" % pip_cmd)
+        print()
+        print("     Depois abra o lançador de novo. Até lá só as opções")
+        print("     8 (diagnóstico) e 0 (sair) respondem.")
+    elif d["libs"].get("qiskit") == "AUSENTE":
+        print()
+        print("  ** Sem Qiskit o QAOA não roda; só as opções 2 e 8 funcionam.")
+        print("     Para habilitá-lo: %s" % pip_cmd)
 
     while True:
         print(MENU)
@@ -582,6 +602,26 @@ def main() -> None:
         if escolha == "8":
             imprimir_diagnostico(d)
             imprimir_capacidade(d)
+            continue
+
+        # Barra a escolha ANTES de abrir o subprocesso. Sem isto o erro só
+        # aparecia lá dentro, como traceback, depois de a pessoa esperar.
+        if essenciais:
+            print()
+            print("  Não dá para rodar a opção %s: falta %s."
+                  % (escolha or "?", ", ".join(essenciais)))
+            print("  Instale primeiro:")
+            print("      %s" % pip_cmd)
+            continue
+
+        if d["libs"].get("qiskit") == "AUSENTE" and escolha in ("1", "3",
+                                                                "4", "5", "6"):
+            print()
+            print("  A opção %s usa o QAOA, e o Qiskit não está instalado."
+                  % escolha)
+            print("  Instale com:")
+            print("      %s" % pip_cmd)
+            print("  Sem ele, a opção 2 (só algoritmos genéticos) funciona.")
             continue
 
         if escolha == "1":
