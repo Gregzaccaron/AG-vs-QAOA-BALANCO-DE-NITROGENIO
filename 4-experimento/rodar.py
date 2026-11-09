@@ -525,7 +525,7 @@ MENU = """
 ========================================================================
  O QUE RODAR
 ========================================================================
-  1  Teste rápido ................ 1 execução, até 20 qubits (~1 min)
+  1  Teste rápido ................ 1 execução, até 20 qubits (~2 min)
   2  Só algoritmos genéticos ..... 30 execuções, as 5 instâncias (~1 s)
   3  Principal até 20 qubits ..... 30 execuções, o essencial do artigo
   4  Principal completo .......... inclui a célula de 24 qubits (longa)

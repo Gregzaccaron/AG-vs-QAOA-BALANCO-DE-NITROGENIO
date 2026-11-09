@@ -196,11 +196,21 @@ O menu oferece:
 
 | Opção | O que faz | Tempo |
 |---|---|---|
-| 1 | Teste rápido, 1 execução até 20 qubits | ~1 min |
-| 2 | Só os algoritmos genéticos, 30 execuções | ~6 s |
+| 1 | Teste rápido: 1 execução de cada método, até 20 qubits | ~2 min |
+| 2 | Só os algoritmos genéticos, 30 execuções, as 5 instâncias | ~6 s |
 | 3 | Experimento principal até 20 qubits, 30 execuções | ~45 min |
-| 4 | Experimento completo, inclui 24 qubits | ~19 h |
-| 5 | Varredura do número de camadas | ~1 h |
+| 4 | Experimento completo, inclui a célula de 24 qubits | ~19 h |
+| 5 | Varredura do número de camadas, p de 1 a 4 | ~1 h |
+| 6 | Modo paralelo: divide as execuções entre processos isolados | varia |
+| 7 | Junta os CSVs parciais deixados pelo modo paralelo | segundos |
+| 8 | Mostra de novo o diagnóstico da máquina | imediato |
+| 0 | Sai sem rodar nada | |
+
+Sobre a **opção 6**: ela acelera a obtenção da qualidade, e a divisão respeita
+a semente, de modo que as colunas de qualidade saem idênticas às da execução
+serial. Mas a coluna de **tempo** não fica comparável, porque os processos
+disputam memória entre si. Os tempos publicados foram medidos com um processo
+só.
 
 A **opção 1** já exercita o caminho inteiro: a formulação QUBO, o algoritmo
 genético nas duas variantes e o QAOA nos dois operadores de mistura.

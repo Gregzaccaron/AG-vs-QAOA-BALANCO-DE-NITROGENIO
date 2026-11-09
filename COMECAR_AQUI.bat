@@ -222,17 +222,10 @@ echo  ===================================================================
 echo.
 echo   Nada sera executado sem voce pedir.
 echo.
-echo   No menu a seguir:
-echo.
-echo     opcao 1   teste rapido, uma execucao de cada metodo em 16 e 20
-echo               variaveis binarias. Cerca de 1 minuto e meio. E o jeito
-echo               mais rapido de ver o QAOA e o algoritmo genetico lado
-echo               a lado.
-echo     opcao 2   so os algoritmos geneticos, 30 execucoes. Uns 6 s.
-echo     opcao 4   o experimento completo do artigo, 480 execucoes.
-echo               Cerca de 19 horas.
-echo     opcao 8   mostra de novo o que esta maquina aguenta.
-echo     opcao 0   sair sem rodar nada.
+echo   O menu a seguir tem nove opcoes, de 0 a 8, e descreve cada uma com
+echo   o tempo que leva. Para so conferir que funciona, escolha a opcao 1:
+echo   e um teste rapido, cerca de dois minutos, que mostra o QAOA e o
+echo   algoritmo genetico lado a lado. A opcao 0 sai sem rodar nada.
 echo.
 echo   Os resultados publicados ja estao em resultados\comparativo.csv, e
 echo   nao e preciso rodar nada para consulta-los.
