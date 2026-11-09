@@ -1,0 +1,18 @@
+Ponha aqui, se quiser, o instalador do Python, para o COMECAR_AQUI.bat
+nao precisar baixa-lo.
+
+Duas opcoes, em ordem de preferencia:
+
+1. python-3.14.6-embed-amd64.zip   (11 MB, RECOMENDADO)
+   https://www.python.org/ftp/python/3.14.6/python-3.14.6-embed-amd64.zip
+   Portatil: nao pede administrador, nao mexe no registro, sai apagando
+   a pasta.
+
+2. python-3.14.6-amd64.exe   (27 MB)
+   https://www.python.org/ftp/python/3.14.6/python-3.14.6-amd64.exe
+   Instalador oficial. O .bat o executa com TargetDir apontando para
+   _python\, entao tambem nao mexe no sistema.
+
+ATENCAO: isto dispensa o download do PYTHON, nao o das BIBLIOTECAS.
+numpy, scipy e qiskit vem do PyPI (cerca de 150 MB) e exigem internet
+na primeira execucao de qualquer forma.

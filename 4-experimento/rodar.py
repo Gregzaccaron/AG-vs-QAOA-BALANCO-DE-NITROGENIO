@@ -26,8 +26,12 @@ import subprocess
 import sys
 import time
 
-AQUI = os.path.dirname(os.path.abspath(__file__))
-EXPERIMENTO = os.path.join(AQUI, "experimento_comparativo.py")
+# AQUI e a RAIZ do projeto, um nivel acima desta pasta. Todo caminho de
+# dado no codigo e "resultados/...", relativo a raiz, e o COMECAR_AQUI.bat
+# sempre executa a partir dela.
+ESTA_PASTA = os.path.dirname(os.path.abspath(__file__))
+AQUI = os.path.dirname(ESTA_PASTA)
+EXPERIMENTO = os.path.join(ESTA_PASTA, "experimento_comparativo.py")
 SAIDAS = os.path.join(AQUI, "resultados")
 
 # ---------------------------------------------------------------------------

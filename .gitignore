@@ -1,11 +1,19 @@
 __pycache__/
 *.pyc
 
-# Logs de execucao: regerados a cada rodada, nunca versionados.
+# Python portatil baixado pelo COMECAR_AQUI.bat. Fica na maquina de quem
+# roda; nunca entra no repositorio (sao 11 MB extraidos, mais ~400 MB de
+# bibliotecas depois do pip).
+_python/
+get-pip.py
+
+# Logs de execucao: regerados a cada rodada.
 *.log
 
 # Saidas regeneraveis.
 resultados/figuras/
+resultados/demonstracao.*
 resultados/teste_rapido.*
 resultados/somente_ag.*
 resultados/parcial_*.csv
+resultados/arquivo_*/

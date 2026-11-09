@@ -49,7 +49,8 @@ import numpy as np
 from parametros import CENARIOS_POR_TAMANHO
 from qubo_rotacao import ModeloQUBO
 
-RESULTADOS = pathlib.Path(__file__).parent / "resultados"
+# Um nivel acima: "resultados" fica na raiz, nao nesta pasta.
+RESULTADOS = pathlib.Path(__file__).parent.parent / "resultados"
 
 
 # ---------------------------------------------------------------------------

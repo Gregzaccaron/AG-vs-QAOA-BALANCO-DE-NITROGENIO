@@ -1,0 +1,28 @@
+# Versoes TRAVADAS, para reproduzir exatamente os resultados publicados.
+#
+# Por que travar, e nao usar o requirements.txt com ">=":
+#
+# A secao 7 do README registra que o QAOA NAO reproduz entre versoes
+# diferentes. Uma perturbacao de ordem 1e-15 no valor esperado da energia,
+# vinda de uma mudanca na decomposicao do circuito que nem altera o operador
+# implementado, basta para o COBYLA cair em outro minimo local, com dezenas
+# de pontos percentuais de diferenca no desvio final.
+#
+# Com ">=" o pip instala o que houver de mais novo. Num teste de 09/11/2026
+# ele trouxe qiskit 2.6.2, numpy 2.5.4 e scipy 1.18.1, todas diferentes das
+# que produziram os dados do artigo, e os numeros do QAOA mudariam.
+#
+# O algoritmo genetico nao sofre disso: reproduz bit a bit em qualquer versao.
+#
+# Ambiente que produziu os resultados publicados:
+#   Python 3.14.6 (Windows 10 Pro 64 bits)
+#   AMD Ryzen 9 5900XT, 16 nucleos fisicos, 32 GB de RAM
+#
+# O COMECAR_AQUI.bat instala um Python 3.14.6 portatil justamente para que a
+# versao do interpretador tambem confira.
+
+numpy==2.5.0
+scipy==1.18.0
+matplotlib==3.11.0
+qiskit==2.5.1
+qiskit-aer==0.17.2
