@@ -72,6 +72,59 @@ torna a comparação legítima.
 
 ---
 
+---
+
+## O que faz cada arquivo
+
+### `1-modelo-qubo/` — o problema vira matemática
+
+| Arquivo | O que faz |
+|---|---|
+| `parametros.py` | Catálogo de culturas e parâmetros agronômicos, tirados do Manual de Calagem e Adubação para RS e SC (2016). Cada valor traz anotada a tabela e a página de origem. Define a escada de instâncias, de 4 a 8 culturas (16 a 32 variáveis binárias). Rode `python 1-modelo-qubo/parametros.py` para ver o catálogo. |
+| `qubo_rotacao.py` | Constrói a matriz `Q` do QUBO, com os sete termos da função objetivo. É o **único** lugar onde o modelo é definido: os dois algoritmos otimizam exatamente a mesma matriz, e é isso que torna a comparação legítima. |
+
+### `2-algoritmo-genetico/` — o método clássico
+
+| Arquivo | O que faz |
+|---|---|
+| `algoritmo_genetico.py` | O laço evolutivo, em duas variantes: **AG padrão**, que ignora a restrição de alocação única, e **AG viável**, que a preserva nos operadores de busca. A implementação é própria, e não PyGAD ou DEAP, porque a contagem de avaliações da função objetivo precisa ser exata e auditável: é ela que permite comparar métodos cujo custo por iteração difere em seis ordens de grandeza. |
+
+### `3-qaoa-quantico/` — o método quântico
+
+| Arquivo | O que faz |
+|---|---|
+| `qaoa_rotacao.py` | O circuito QAOA: conversão do QUBO para Hamiltoniano de Ising, os dois operadores de mistura e o laço híbrido com COBYLA. O **mixer X** inverte bits e percorre todo o espaço de 2^n; o **mixer XY** troca qubits, conserva o peso de Hamming e por isso nunca sai do conjunto de alocações válidas. |
+| `qaoa_diagonal.py` | Evolução do estado aproveitando que o Hamiltoniano de custo é diagonal na base computacional. Nenhum outro módulo o importa: serve para validar a simulação e registra um resultado negativo de desempenho. |
+
+Não há execução em hardware quântico real. Tudo roda no simulador de vetor de
+estado do Qiskit Aer, sem ruído, que é a condição mais favorável possível ao
+método quântico.
+
+### `4-experimento/` — o que gera os dados
+
+| Arquivo | O que faz |
+|---|---|
+| `rodar.py` | O lançador interativo. Mostra o que a máquina aguenta, instância por instância, e monta as linhas de comando do artigo. É o menu que aparece no fim. |
+| `experimento_comparativo.py` | O ponto de entrada de verdade: percorre instâncias, métodos e repetições, e grava o CSV. |
+| `escalabilidade.py` | Mede tempo e memória por instância, sem otimizar nada. |
+| `progresso.py` | Barra de progresso das execuções longas, que chegam a horas. |
+
+### `5-analise/` — o que produz as saídas
+
+| Arquivo | O que faz |
+|---|---|
+| `graficos.py` | As figuras do artigo. Legíveis impressas em preto e branco: a identidade de cada série nunca depende só da cor. |
+| `exportar_xlsx.py` | Converte o CSV em `.xlsx` de duas abas, sem nenhuma dependência externa. |
+| `custo_hardware.py` | Estima o custo de rodar o mesmo circuito em hardware quântico real, transpilando para uma malha *heavy-hex* de verdade. Não executa nada em nuvem. |
+| `medicoes_pendentes.py` | Três medições citadas no texto do artigo. |
+
+Os scripts de análise rodam a partir da **raiz** da pasta, não de dentro dela:
+
+    python 5-analise/graficos.py
+    python 5-analise/exportar_xlsx.py
+
+---
+
 ## Dois avisos do Windows
 
 **"O Windows protegeu o seu computador"** (tela azul do SmartScreen). Acontece

@@ -46,6 +46,13 @@ REM  O codigo esta em pastas tematicas. Para um Python de sistema, PYTHONPATH
 REM  resolve. Para o portatil nao: quando existe um arquivo ._pth, o Python
 REM  IGNORA o PYTHONPATH e usa so o que estiver nele. Por isso as mesmas
 REM  pastas sao escritas no ._pth mais abaixo.
+REM  Sem isto a saida do Python fica em buffer e a tela parece travada
+REM  durante a demonstracao, que leva cerca de um minuto e meio. A barra de
+REM  progresso do progresso.py reescreve a propria linha, e so aparece se a
+REM  saida for descarregada na hora.
+set "PYTHONUNBUFFERED=1"
+set "PYTHONIOENCODING=utf-8"
+
 set "PYTHONPATH=%~dp01-modelo-qubo;%~dp02-algoritmo-genetico;%~dp03-qaoa-quantico;%~dp04-experimento;%~dp05-analise"
 
 cls
@@ -208,9 +215,17 @@ echo  ===================================================================
 echo.
 echo   Demonstracao: uma execucao de cada metodo em 16 e 20 variaveis
 echo   binarias, comparando o algoritmo genetico com o QAOA nos dois
-echo   operadores de mistura. Cerca de 1 minuto.
+echo   operadores de mistura.
+echo.
+echo   Leva cerca de 1 minuto e meio. A linha de progresso se reescreve no
+echo   lugar, entao e normal o cursor ficar parado entre uma etapa e outra.
 echo.
 pause
+echo.
+echo  -------------------------------------------------------------------
+echo   RODANDO A DEMONSTRACAO... aguarde
+echo  -------------------------------------------------------------------
+echo.
 
 %PYEXE% 4-experimento\experimento_comparativo.py --execucoes 1 ^
     --ags padrao viavel --mixers X XY --qaoa-p 2 --qaoa-maxiter 100 ^
@@ -225,11 +240,13 @@ echo.
 echo   Compare com resultados\comparativo.csv, que traz as 480 execucoes
 echo   publicadas: os custos devem bater exatamente.
 echo.
-echo   No menu a seguir, a opcao 1 e um teste rapido e a 4 e o
-echo   experimento completo do artigo.
 echo  ===================================================================
 echo.
+echo   Abrindo o menu. A opcao 1 e um teste rapido; a 4 e o experimento
+echo   completo do artigo; a 0 sai.
+echo.
 pause
+echo.
 
 %PYEXE% 4-experimento\rodar.py
 goto fim
